@@ -1,18 +1,34 @@
-FROM debian:11
+ARG BASE_TAG="1.15.0"
+ARG BASE_IMAGE="core-ubuntu-focal"
+FROM kasmweb/$BASE_IMAGE:$BASE_TAG
+USER root
 
-COPY OpenPLC_Editor /src
-COPY .xinitrc /root/
-#COPY sources.list /etc/apt/sources.list
+ENV HOME /home/kasm-default-profile
+ENV STARTUPDIR /dockerstartup
+ENV INST_SCRIPTS $STARTUPDIR/install
+WORKDIR $HOME
 
-WORKDIR /src
+######### Customize Container Here ###########
 
-RUN apt-get update && apt-get install -y sudo build-essential autoconf x11vnc xvfb
+COPY ./OpenPLC_Editor $INST_SCRIPTS/OpenPLC_Editor
+RUN bash $INST_SCRIPTS/OpenPLC_Editor/install.sh && rm -rf $INST_SCRIPTS/OpenPLC_Editor/
 
-#ARG http_proxy=http://172.17.0.1:1080
-#ARG https_proxy=http://172.17.0.1:1080
+COPY ./custom_startup.sh $STARTUPDIR/custom_startup.sh
+RUN chmod +x $STARTUPDIR/custom_startup.sh
+RUN chmod 755 $STARTUPDIR/custom_startup.sh
 
-RUN ./install.sh
 
-EXPOSE 5900
+# Update the desktop environment to be optimized for a single application
+RUN cp $HOME/.config/xfce4/xfconf/single-application-xfce-perchannel-xml/* $HOME/.config/xfce4/xfconf/xfce-perchannel-xml/
+RUN cp /usr/share/backgrounds/bg_kasm.png /usr/share/backgrounds/bg_default.png
+RUN apt-get remove -y xfce4-panel
 
-CMD [ "x11vnc", "-create", "-forever" ]
+######### End Customizations ###########
+
+RUN chown 1000:0 $HOME
+
+ENV HOME /home/kasm-user
+WORKDIR $HOME
+RUN mkdir -p $HOME && chown -R 1000:0 $HOME
+
+USER 1000
